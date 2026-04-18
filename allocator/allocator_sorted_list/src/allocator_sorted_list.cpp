@@ -3,13 +3,16 @@
 
 allocator_sorted_list::~allocator_sorted_list()
 {
-    throw not_implemented("allocator_sorted_list::~allocator_sorted_list()", "your code should be here...");
+    get_mutex().~mutex();
+    get_parent_allocator()->deallocate(_trusted_memory, allocator_metadata_size + block_metadata_size + get_space_size());
+    _trusted_memory = nullptr;
 }
 
 allocator_sorted_list::allocator_sorted_list(
     allocator_sorted_list &&other) noexcept
 {
-    throw not_implemented("allocator_sorted_list::allocator_sorted_list(allocator_sorted_list &&) noexcept", "your code should be here...");
+    _trusted_memory = other._trusted_memory;
+    other._trusted_memory = nullptr;
 }
 
 allocator_sorted_list &allocator_sorted_list::operator=(
