@@ -194,7 +194,7 @@ std::mutex& allocator_sorted_list::get_mutex() const noexcept {
 }
 
 void* allocator_sorted_list::read_first_free(void *trusted) noexcept {
-    return *reinterpret_cast<void*>(reinterpret_cast<char*>(trusted) + sizeof(std::pmr::memory_resource*) + sizeof(fit_mode) + sizeof(size_t) + sizeof(std::mutex));
+    return *reinterpret_cast<void**>(reinterpret_cast<char*>(trusted) + sizeof(std::pmr::memory_resource*) + sizeof(fit_mode) + sizeof(size_t) + sizeof(std::mutex));
 }
 
 void* allocator_sorted_list::*read_block_next(void *block) noexcept {
@@ -203,4 +203,12 @@ void* allocator_sorted_list::*read_block_next(void *block) noexcept {
 
 size_t allocator_sorted_list::read_block_size(void *block) noexcept {
     return *reinterpret_cast<size_t *>(reinterpret_cast<char *>(block) + sizeof(void*));
+}
+
+size_t allocator_sorted_list::get_space_size() const noexcept {
+    return read_space_size(_trusted_memory);
+}
+
+void* allocator_sorted_list::get_first_free() const noexcept {
+    return read_first_free(_trusted_memory);
 }
