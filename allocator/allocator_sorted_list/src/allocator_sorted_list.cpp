@@ -177,3 +177,30 @@ bool allocator_sorted_list::sorted_iterator::occupied() const noexcept
 {
     throw not_implemented("bool allocator_sorted_list::sorted_iterator::occupied() const noexcept", "your code should be here...");
 }
+
+std::pmr::memory_resource* allocator_sorted_list::get_parent_allocator() const noexcept {
+    return *reinterpret_cast<std::pmr::memory_resource **>(reinterpret_cast<char*>(_trusted_memory));
+}
+
+allocator_sorted_list::fit_mode allocator_sorted_list::get_fitmode() const noexcept {
+    return *reinterpret_cast<allocator_sorted_list::fit_mode*>(reinterpret_cast<char*>(_trusted_memory) + sizeof(std::pmr::memory_resource*));
+}
+
+size_t allocator_sorted_list::read_space_size(void* trusted) noexcept {
+    return *reinterpret_cast<size_t*>(reinterpret_cast<char*>(trusted) + sizeof(std::pmr::memory_resource*) + sizeof(fit_mode));
+}
+std::mutex& allocator_sorted_list::get_mutex() const noexcept {
+    return *reinterpret_cast<std::mutex*>(reinterpret_cast<char*>(_trusted_memory) + sizeof(std::pmr::memory_resource*) + sizeof(fit_mode) + sizeof(size_t));
+}
+
+void* allocator_sorted_list::read_first_free(void *trusted) noexcept {
+    return *reinterpret_cast<void*>(reinterpret_cast<char*>(trusted) + sizeof(std::pmr::memory_resource*) + sizeof(fit_mode) + sizeof(size_t) + sizeof(std::mutex));
+}
+
+void* allocator_sorted_list::*read_block_next(void *block) noexcept {
+    return *reinterpret_cast<void**>(block);
+}
+
+size_t allocator_sorted_list::read_block_size(void *block) noexcept {
+    return *reinterpret_cast<size_t *>(reinterpret_cast<char *>(block) + sizeof(void*));
+}
