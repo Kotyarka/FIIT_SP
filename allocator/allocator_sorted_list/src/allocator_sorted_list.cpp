@@ -135,17 +135,36 @@ allocator_sorted_list::allocator_sorted_list(
 
 allocator_sorted_list::allocator_sorted_list(const allocator_sorted_list &other)
 {
-    throw not_implemented("allocator_sorted_list::allocator_sorted_list(const allocator_sorted_list &other)", "your code should be here...");
+    size_t totalSize =
+        allocator_metadata_size + block_metadata_size + other.get_space_size();
+    _trusted_memory = other.get_parent_allocator()->allocate(totalSize);
+    std::memcpy(_trusted_memory, other._trusted_memory, totalSize);
+    new (&get_mutex()) std::mutex();
 }
 
 allocator_sorted_list &allocator_sorted_list::operator=(const allocator_sorted_list &other)
 {
-    throw not_implemented("allocator_sorted_list &allocator_sorted_list::operator=(const allocator_sorted_list &other)", "your code should be here...");
+    if (*this == other)
+        return *this;
+
+    get_mutex().~mutex();
+    get_parent_allocator()->deallocate(_trusted_memory, allocator_metadata_size +
+                                                    block_metadata_size +
+                                                    get_space_size());
+
+    size_t totalSize =
+        allocator_metadata_size + block_metadata_size + other.get_space_size();
+    _trusted_memory = other.get_parent_allocator()->allocate(totalSize);
+    std::memcpy(_trusted_memory, other._trusted_memory, totalSize);
+    new (&get_mutex()) std::mutex();
+
+    return *this;
 }
 
 bool allocator_sorted_list::do_is_equal(const std::pmr::memory_resource &other) const noexcept
 {
-    throw not_implemented("bool allocator_sorted_list::do_is_equal(const std::pmr::memory_resource &other) const noexcept", "your code should be here...");
+  auto *o = dynamic_cast<const allocator_sorted_list *>(&other);
+  return o != nullptr && o->_trusted_memory == _trusted_memory;
 }
 
 void allocator_sorted_list::do_deallocate_sm(
@@ -157,11 +176,13 @@ void allocator_sorted_list::do_deallocate_sm(
 inline void allocator_sorted_list::set_fit_mode(
     allocator_with_fit_mode::fit_mode mode)
 {
-    throw not_implemented("inline void allocator_sorted_list::set_fit_mode(allocator_with_fit_mode::fit_mode)", "your code should be here...");
+    auto *ptr = reinterpret_cast<char *>(_trusted_memory) +
+                sizeof(std::pmr::memory_resource *);
+    *reinterpret_cast<fit_mode *>(ptr) = mode;
 }
 
 std::vector<allocator_test_utils::block_info> allocator_sorted_list::get_blocks_info() const noexcept
-{
+{   
     throw not_implemented("std::vector<allocator_test_utils::block_info> allocator_sorted_list::get_blocks_info() const noexcept", "your code should be here...");
 }
 
