@@ -18,7 +18,17 @@ allocator_sorted_list::allocator_sorted_list(
 allocator_sorted_list &allocator_sorted_list::operator=(
     allocator_sorted_list &&other) noexcept
 {
-    throw not_implemented("allocator_sorted_list &allocator_sorted_list::operator=(allocator_sorted_list &&) noexcept", "your code should be here...");
+    if (*this == other) {
+        return *this;
+    }
+
+    get_mutex().~mutex();
+    get_parent_allocator()->deallocate(_trusted_memory, allocator_metadata_size + block_metadata_size + get_space_size());
+    _trusted_memory = other._trusted_memory;
+        // other._trusted_memory = nullptr;
+    return *this;
+
+
 }
 
 allocator_sorted_list::allocator_sorted_list(
@@ -26,14 +36,102 @@ allocator_sorted_list::allocator_sorted_list(
         std::pmr::memory_resource *parent_allocator,
         allocator_with_fit_mode::fit_mode allocate_fit_mode)
 {
-    throw not_implemented("allocator_sorted_list::allocator_sorted_list(size_t, std::pmr::memory_resource *,logger *,allocator_with_fit_mode::fit_mode)", "your code should be here...");
+
+    if (parent_allocator == nullptr) {
+        parent_allocator = std::pmr::get_default_resource();
+    }
+    _trusted_memory = parent_allocator->allocate(allocator_metadata_size + block_metadata_size + space_size);
+    auto ptr = reinterpret_cast<char *>(_trusted_memory);
+
+    *reinterpret_cast<std::pmr::memory_resource **>(ptr) = parent_allocator;
+    ptr += sizeof(std::pmr::memory_resource*);
+
+    *reinterpret_cast<fit_mode *>(ptr) = allocate_fit_mode;
+    ptr += sizeof(fit_mode);
+
+    *reinterpret_cast<size_t *>(ptr) = space_size;
+    ptr += sizeof(size_t);
+
+    new (ptr) std::mutex();
+    ptr += sizeof(std::mutex);
+
+    void *first_free = ptr + sizeof(void*);
+    *reinterpret_cast<void **>(ptr) = first_free;
+    ptr += sizeof(void *);
+
+    *reinterpret_cast<void **>(ptr) = nullptr;
+    ptr += sizeof(void *);
+
+    *reinterpret_cast<size_t *>(ptr) = space_size; // ?
+
 }
 
 [[nodiscard]] void *allocator_sorted_list::do_allocate_sm(
     size_t size)
 {
-    throw not_implemented("[[nodiscard]] void *allocator_sorted_list::do_allocate_sm(size_t)", "your code should be here...");
+    if (size == 0) {
+        return;
+    }
+
+    char* current = reinterpret_cast<char*>(get_first_free());
+    char* previous = nullptr;
+
+    char* chosen = nullptr;
+    char* chosen_prev = nullptr;
+    fit_mode fitmode = get_fitmode();
+    while (current != nullptr) {
+        if (read_block_size(current) >= size) {
+        switch (fitmode) {
+            case fit_mode::first_fit:
+                chosen = current;
+                chosen_prev = previous;
+                current = nullptr;
+                break;
+            case fit_mode::the_best_fit:
+                if (chosen == nullptr || read_block_size(current) < read_block_size(chosen)) { // sdelat size kak perem
+                    chosen = current;
+                    chosen_prev = previous;
+                }
+                break;
+            case fit_mode::the_worst_fit:
+                if (chosen == nullptr || read_block_size(current) > read_block_size(chosen)) {
+                    chosen = current;
+                    chosen_prev = previous;
+                }
+                break;
+        } 
+    }
+        if (current != nullptr) {
+            previous = current;
+            current = reinterpret_cast<char*>(read_block_next(current));
+        }
+    }
+    if (chosen == nullptr) {
+        throw std::bad_alloc();
+    }
+
+    size_t chosen_size = read_block_size(chosen);
+    void* remainder = nullptr;
+
+    if (chosen_size > block_metadata_size + size + 1) {
+        remainder = chosen + size + block_metadata_size;
+        *reinterpret_cast<void* *>(remainder) = read_block_next(current);
+        *reinterpret_cast<size_t *>(reinterpret_cast<char*>(remainder) + sizeof(void*)) = (read_block_size(chosen) - block_metadata_size - size);
+    }
+
+    void* next = remainder != nullptr ? remainder : read_block_next(chosen);
+    
+    if (chosen_prev == nullptr) {
+        set_first_free(previous);
+    } else {
+        *reinterpret_cast<void**>(chosen_prev) = next;
+    }
+
+    *reinterpret_cast<size_t*>(reinterpret_cast<char*>(chosen)+sizeof(void*)) = size;
+
+    return reinterpret_cast<char*>(chosen) + block_metadata_size;
 }
+
 
 allocator_sorted_list::allocator_sorted_list(const allocator_sorted_list &other)
 {
@@ -200,7 +298,7 @@ void* allocator_sorted_list::read_first_free(void *trusted) noexcept {
     return *reinterpret_cast<void**>(reinterpret_cast<char*>(trusted) + sizeof(std::pmr::memory_resource*) + sizeof(fit_mode) + sizeof(size_t) + sizeof(std::mutex));
 }
 
-void* allocator_sorted_list::*read_block_next(void *block) noexcept {
+void* allocator_sorted_list::read_block_next(void *block) noexcept {
     return *reinterpret_cast<void**>(block);
 }
 
