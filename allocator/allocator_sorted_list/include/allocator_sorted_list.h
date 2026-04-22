@@ -6,6 +6,8 @@
 #include <allocator_with_fit_mode.h>
 #include <iterator>
 #include <mutex>
+#include <cstddef>
+#include <cstring>
 
 class allocator_sorted_list final:
     public smart_mem_resource,
@@ -21,8 +23,8 @@ private:
 
     static constexpr const size_t block_metadata_size = sizeof(void*) + sizeof(size_t);
 
-    std::pmr::memory_resource *get_parent() const noexcept;
-    fit_mode get_fit_mode() const noexcept;
+    std::pmr::memory_resource *get_parent_allocator() const noexcept;
+    fit_mode get_fitmode() const noexcept;
     size_t get_space_size() const noexcept;
     std::mutex& get_mutex() const noexcept;
     void *get_first_free() const noexcept;
