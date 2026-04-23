@@ -70,7 +70,7 @@ allocator_sorted_list::allocator_sorted_list(
     size_t size)
 {
     if (size == 0) {
-        return;
+        return nullptr;
     }
 
     char* current = reinterpret_cast<char*>(get_first_free());
@@ -132,6 +132,13 @@ allocator_sorted_list::allocator_sorted_list(
     return reinterpret_cast<char*>(chosen) + block_metadata_size;
 }
 
+void allocator_sorted_list::set_first_free(void *ptr) noexcept {
+    auto *p = reinterpret_cast<char *>(_trusted_memory) +
+                sizeof(std::pmr::memory_resource *) + sizeof(fit_mode) +
+                sizeof(size_t) + sizeof(std::mutex);
+    *reinterpret_cast<void **>(p) = ptr;
+}
+
 
 allocator_sorted_list::allocator_sorted_list(const allocator_sorted_list &other)
 {
@@ -167,10 +174,56 @@ bool allocator_sorted_list::do_is_equal(const std::pmr::memory_resource &other) 
   return o != nullptr && o->_trusted_memory == _trusted_memory;
 }
 
-void allocator_sorted_list::do_deallocate_sm(
-    void *at)
-{
-    throw not_implemented("void allocator_sorted_list::do_deallocate_sm(void *)", "your code should be here...");
+void allocator_sorted_list::do_deallocate_sm(void *at) {
+    std::lock_guard<std::mutex> lock(get_mutex());
+
+    void *memStart =
+        reinterpret_cast<char *>(_trusted_memory) + allocator_metadata_size;
+    void *memEnd = reinterpret_cast<char *>(memStart) + get_space_size();
+
+    void *block = reinterpret_cast<char *>(at) - block_metadata_size;
+
+    if (block < memStart || block >= memEnd) {
+        throw std::invalid_argument("block does not belong to this allocator");
+    }
+
+    void *prev = nullptr;
+    void *curr = get_first_free();
+
+    while (curr != nullptr && curr < block) {
+        prev = curr;
+        curr = read_block_next(curr);
+    }
+
+    *reinterpret_cast<void **>(block) = curr;
+
+    if (prev == nullptr) {
+        set_first_free(block);
+    } else {
+        *reinterpret_cast<void **>(prev) = block;
+    }
+
+    void *block_end = reinterpret_cast<char *>(block) + block_metadata_size +
+                        read_block_size(block);
+
+    if (curr != nullptr && block_end == curr) {
+        *reinterpret_cast<void **>(block) = read_block_next(curr);
+        *reinterpret_cast<size_t *>(reinterpret_cast<char *>(block) +
+                                    sizeof(void *)) =
+            read_block_size(block) + block_metadata_size + read_block_size(curr);
+    }
+
+    if (prev != nullptr) {
+        void *prev_end = reinterpret_cast<char *>(prev) + block_metadata_size +
+                        read_block_size(prev);
+
+        if (prev_end == block) {
+        *reinterpret_cast<void **>(prev) = read_block_next(block);
+        *reinterpret_cast<size_t *>(reinterpret_cast<char *>(prev) +
+                                    sizeof(void *)) =
+            read_block_size(prev) + block_metadata_size + read_block_size(block);
+        }
+    }
 }
 
 inline void allocator_sorted_list::set_fit_mode(
@@ -216,7 +269,7 @@ allocator_sorted_list::sorted_iterator allocator_sorted_list::begin() const noex
 
 allocator_sorted_list::sorted_iterator allocator_sorted_list::end() const noexcept
 {
-    throw not_implemented("allocator_sorted_list::sorted_iterator allocator_sorted_list::end() const noexcept", "your code should be here..."); // maybe ++ami?
+    return sorted_iterator(); // а я думал надо последний элемент, прочитал, понял что после последнего 
 }
 
 
@@ -269,42 +322,55 @@ bool allocator_sorted_list::sorted_iterator::operator==(const allocator_sorted_l
 
 bool allocator_sorted_list::sorted_iterator::operator!=(const allocator_sorted_list::sorted_iterator &other) const noexcept
 {
-    throw not_implemented("bool allocator_sorted_list::sorted_iterator::operator!=(const allocator_sorted_list::sorted_iterator &) const noexcept", "your code should be here...");
+    return _current_ptr != other._current_ptr;
 }
 
 allocator_sorted_list::sorted_iterator &allocator_sorted_list::sorted_iterator::operator++() & noexcept
 {
-    throw not_implemented("allocator_sorted_list::sorted_iterator &allocator_sorted_list::sorted_iterator::operator++() & noexcept", "your code should be here...");
+    if (_current_ptr == _free_ptr && _free_ptr != nullptr)
+        _free_ptr = read_block_next(_free_ptr);
+
+    _current_ptr =
+        reinterpret_cast<char *>(_current_ptr) + block_metadata_size + size();
+
+    void *memory_end = reinterpret_cast<char *>(_trusted_memory) +
+                        allocator_metadata_size + read_space_size(_trusted_memory);
+
+    if (_current_ptr >= memory_end)
+        _current_ptr = nullptr;
+
+    return *this;
 }
 
 allocator_sorted_list::sorted_iterator allocator_sorted_list::sorted_iterator::operator++(int n)
 {
-    throw not_implemented("allocator_sorted_list::sorted_iterator allocator_sorted_list::sorted_iterator::operator++(int)", "your code should be here...");
+    auto tmp = *this;
+    ++(*this);
+    return tmp;
 }
 
 size_t allocator_sorted_list::sorted_iterator::size() const noexcept
 {
-    throw not_implemented("size_t allocator_sorted_list::sorted_iterator::size() const noexcept", "your code should be here...");
+    return read_block_size(_current_ptr);
 }
 
 void *allocator_sorted_list::sorted_iterator::operator*() const noexcept
 {
-    throw not_implemented("void *allocator_sorted_list::sorted_iterator::operator*() const noexcept", "your code should be here...");
+    return _current_ptr;
 }
 
 allocator_sorted_list::sorted_iterator::sorted_iterator()
-{
-    throw not_implemented("allocator_sorted_list::sorted_iterator::sorted_iterator() ", "your code should be here...");
-}
+    : _free_ptr(nullptr), _current_ptr(nullptr), _trusted_memory(nullptr) {}
 
 allocator_sorted_list::sorted_iterator::sorted_iterator(void *trusted)
-{
-    throw not_implemented("allocator_sorted_list::sorted_iterator::sorted_iterator(void *)", "your code should be here...");
+    : _trusted_memory(trusted) {
+    _free_ptr = read_first_free(trusted);
+    _current_ptr = reinterpret_cast<char *>(trusted) + allocator_metadata_size;
 }
 
 bool allocator_sorted_list::sorted_iterator::occupied() const noexcept
 {
-    throw not_implemented("bool allocator_sorted_list::sorted_iterator::occupied() const noexcept", "your code should be here...");
+    return _current_ptr != _free_ptr;
 }
 
 std::pmr::memory_resource* allocator_sorted_list::get_parent_allocator() const noexcept {
