@@ -183,81 +183,88 @@ inline void allocator_sorted_list::set_fit_mode(
 
 std::vector<allocator_test_utils::block_info> allocator_sorted_list::get_blocks_info() const noexcept
 {   
-    throw not_implemented("std::vector<allocator_test_utils::block_info> allocator_sorted_list::get_blocks_info() const noexcept", "your code should be here...");
+    std::lock_guard<std::mutex> lock(get_mutex());
+    return get_blocks_info_inner();
 }
 
 
 std::vector<allocator_test_utils::block_info> allocator_sorted_list::get_blocks_info_inner() const
 {
-    throw not_implemented("std::vector<allocator_test_utils::block_info> allocator_sorted_list::get_blocks_info_inner() const", "your code should be here...");
+    std::vector<allocator_test_utils::block_info> infoVec;
+
+    for (auto it = begin(); it != end(); ++it) {
+        infoVec.push_back({it.size(), it.occupied()});
+    }
+
+    return infoVec;
 }
 
 allocator_sorted_list::sorted_free_iterator allocator_sorted_list::free_begin() const noexcept
 {
-    throw not_implemented("allocator_sorted_list::sorted_free_iterator allocator_sorted_list::free_begin() const noexcept", "your code should be here...");
+    return sorted_free_iterator(_trusted_memory);
 }
 
 allocator_sorted_list::sorted_free_iterator allocator_sorted_list::free_end() const noexcept
 {
-    throw not_implemented("allocator_sorted_list::sorted_free_iterator allocator_sorted_list::free_end() const noexcept", "your code should be here...");
+    return sorted_free_iterator();
 }
 
 allocator_sorted_list::sorted_iterator allocator_sorted_list::begin() const noexcept
 {
-    throw not_implemented("allocator_sorted_list::sorted_iterator allocator_sorted_list::begin() const noexcept", "your code should be here...");
+    return sorted_iterator(_trusted_memory);
 }
 
 allocator_sorted_list::sorted_iterator allocator_sorted_list::end() const noexcept
 {
-    throw not_implemented("allocator_sorted_list::sorted_iterator allocator_sorted_list::end() const noexcept", "your code should be here...");
+    throw not_implemented("allocator_sorted_list::sorted_iterator allocator_sorted_list::end() const noexcept", "your code should be here..."); // maybe ++ami?
 }
 
 
 bool allocator_sorted_list::sorted_free_iterator::operator==(
         const allocator_sorted_list::sorted_free_iterator & other) const noexcept
 {
-    throw not_implemented("bool allocator_sorted_list::sorted_free_iterator::operator==(const allocator_sorted_list::sorted_free_iterator &) const noexcept", "your code should be here...");
+    return _free_ptr == other._free_ptr;
 }
 
 bool allocator_sorted_list::sorted_free_iterator::operator!=(
         const allocator_sorted_list::sorted_free_iterator &other) const noexcept
 {
-    throw not_implemented("bool allocator_sorted_list::sorted_free_iterator::operator!=(const allocator_sorted_list::sorted_free_iterator &) const noexcept", "your code should be here...");
+    return _free_ptr != other._free_ptr;
 }
 
 allocator_sorted_list::sorted_free_iterator &allocator_sorted_list::sorted_free_iterator::operator++() & noexcept
 {
-    throw not_implemented("allocator_sorted_list::sorted_free_iterator &allocator_sorted_list::sorted_free_iterator::operator++() & noexcept", "your code should be here...");
+    _free_ptr = read_block_next(_free_ptr);
+    return *this;
 }
 
 allocator_sorted_list::sorted_free_iterator allocator_sorted_list::sorted_free_iterator::operator++(int n)
 {
-    throw not_implemented("allocator_sorted_list::sorted_free_iterator allocator_sorted_list::sorted_free_iterator::operator++(int)", "your code should be here...");
+    auto temp = *this;
+    ++(*this);
+    return temp;
 }
 
 size_t allocator_sorted_list::sorted_free_iterator::size() const noexcept
 {
-    throw not_implemented("size_t allocator_sorted_list::sorted_free_iterator::size() const noexcept", "your code should be here...");
+    return read_block_size(_free_ptr);
 }
 
 void *allocator_sorted_list::sorted_free_iterator::operator*() const noexcept
 {
-    throw not_implemented("void *allocator_sorted_list::sorted_free_iterator::operator*() const noexcept", "your code should be here...");
+    return _free_ptr;
 }
 
-allocator_sorted_list::sorted_free_iterator::sorted_free_iterator()
-{
-    throw not_implemented("allocator_sorted_list::sorted_free_iterator::sorted_free_iterator()", "your code should be here...");
-}
+allocator_sorted_list::sorted_free_iterator::sorted_free_iterator() : _free_ptr(nullptr) {}
 
-allocator_sorted_list::sorted_free_iterator::sorted_free_iterator(void *trusted)
+allocator_sorted_list::sorted_free_iterator::sorted_free_iterator(void *trusted) 
 {
-    throw not_implemented("allocator_sorted_list::sorted_free_iterator::sorted_free_iterator(void *)", "your code should be here...");
+    _free_ptr = read_first_free(trusted);
 }
 
 bool allocator_sorted_list::sorted_iterator::operator==(const allocator_sorted_list::sorted_iterator & other) const noexcept
 {
-    throw not_implemented("bool allocator_sorted_list::sorted_iterator::operator==(const allocator_sorted_list::sorted_iterator &) const noexcept", "your code should be here...");
+    return _current_ptr == other._current_ptr;
 }
 
 bool allocator_sorted_list::sorted_iterator::operator!=(const allocator_sorted_list::sorted_iterator &other) const noexcept
