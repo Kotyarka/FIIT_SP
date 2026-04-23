@@ -62,7 +62,7 @@ allocator_sorted_list::allocator_sorted_list(
     *reinterpret_cast<void **>(ptr) = nullptr;
     ptr += sizeof(void *);
 
-    *reinterpret_cast<size_t *>(ptr) = space_size; // ?
+    *reinterpret_cast<size_t *>(ptr) = space_size;
 
 }
 
@@ -115,7 +115,7 @@ allocator_sorted_list::allocator_sorted_list(
 
     if (chosen_size > block_metadata_size + size + 1) {
         remainder = chosen + size + block_metadata_size;
-        *reinterpret_cast<void* *>(remainder) = read_block_next(current);
+        *reinterpret_cast<void* *>(remainder) = read_block_next(chosen);
         *reinterpret_cast<size_t *>(reinterpret_cast<char*>(remainder) + sizeof(void*)) = (read_block_size(chosen) - block_metadata_size - size);
     }
 
