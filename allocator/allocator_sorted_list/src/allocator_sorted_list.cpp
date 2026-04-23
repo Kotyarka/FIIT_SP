@@ -9,10 +9,8 @@ allocator_sorted_list::~allocator_sorted_list()
 }
 
 allocator_sorted_list::allocator_sorted_list(
-    allocator_sorted_list &&other) noexcept
+    allocator_sorted_list &&other) noexcept  : _trusted_memory(std::exchange(other._trusted_memory, nullptr))
 {
-    _trusted_memory = other._trusted_memory;
-    other._trusted_memory = nullptr;
 }
 
 allocator_sorted_list &allocator_sorted_list::operator=(
@@ -119,10 +117,10 @@ allocator_sorted_list::allocator_sorted_list(
         *reinterpret_cast<size_t *>(reinterpret_cast<char*>(remainder) + sizeof(void*)) = (read_block_size(chosen) - block_metadata_size - size);
     }
 
-    void* next = remainder != nullptr ? remainder : read_block_next(chosen);
+    void* next = remainder ? remainder : read_block_next(chosen);
     
     if (chosen_prev == nullptr) {
-        set_first_free(previous);
+        set_first_free(next);
     } else {
         *reinterpret_cast<void**>(chosen_prev) = next;
     }
