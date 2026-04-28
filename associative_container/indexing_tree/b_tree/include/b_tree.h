@@ -44,7 +44,6 @@ private:
 
     pp_allocator<value_type> _allocator;
     using node_allocator_type = typename std::allocator_traits<pp_allocator<value_type>>::template rebind_alloc<btree_node>;
-    node_allocator_type _node_allocator;
     btree_node* _root;
     size_t _size;
 
@@ -401,7 +400,7 @@ template<typename tkey, typename tvalue, comparator<tkey> compare, std::size_t t
 B_tree<tkey, tvalue, compare, t>::B_tree(
         const compare& cmp,
         pp_allocator<value_type> alloc)
-    : compare(cmp), _allocator(alloc), _node_allocator(alloc), _root(nullptr), _size(0)
+    : compare(cmp), _allocator(alloc), _root(nullptr), _size(0)
 {
 }
 
@@ -409,7 +408,7 @@ template<typename tkey, typename tvalue, comparator<tkey> compare, std::size_t t
 B_tree<tkey, tvalue, compare, t>::B_tree(
         pp_allocator<value_type> alloc,
         const compare& comp)
-    : compare(comp), _allocator(alloc), _node_allocator(alloc), _root(nullptr), _size(0)
+    : compare(comp), _allocator(alloc), _root(nullptr), _size(0)
 {
 }
 
@@ -420,7 +419,7 @@ B_tree<tkey, tvalue, compare, t>::B_tree(
         iterator end,
         const compare& cmp,
         pp_allocator<value_type> alloc)
-    : compare(cmp), _allocator(alloc), _node_allocator(alloc), _root(nullptr), _size(0)
+    : compare(cmp), _allocator(alloc), _root(nullptr), _size(0)
 {
 
         for (auto it = begin; it != end; ++it) {
@@ -433,7 +432,7 @@ B_tree<tkey, tvalue, compare, t>::B_tree(
         std::initializer_list<std::pair<tkey, tvalue>> data,
         const compare& cmp,
         pp_allocator<value_type> alloc)
-    : compare(cmp), _allocator(alloc), _node_allocator(alloc), _root(nullptr), _size(0)
+    : compare(cmp), _allocator(alloc), _root(nullptr), _size(0)
 {
         for (const auto& item : data) {
             insert(item);
@@ -452,7 +451,7 @@ B_tree<tkey, tvalue, compare, t>::~B_tree() noexcept
 
 template<typename tkey, typename tvalue, comparator<tkey> compare, std::size_t t>
 B_tree<tkey, tvalue, compare, t>::B_tree(const B_tree& other)
-    : compare(other), _allocator(other._allocator), _node_allocator(other._node_allocator), _root(nullptr), _size(0)
+    : compare(other), _allocator(other._allocator), _root(nullptr), _size(0)
 {
         if (other._root) {
             _root = copy_node(other._root, nullptr);
@@ -467,7 +466,6 @@ void B_tree<tkey, tvalue, compare, t>::swap(B_tree& other) noexcept
     
     swap(static_cast<compare&>(*this), static_cast<compare&>(other));
     swap(_allocator, other._allocator);
-    swap(_node_allocator, other._node_allocator);
     swap(_root, other._root);
     swap(_size, other._size);
 }
