@@ -3,21 +3,37 @@
 
 allocator_boundary_tags::~allocator_boundary_tags()
 {
-    throw not_implemented("allocator_boundary_tags::~allocator_boundary_tags()", "your code should be here...");
+    if (_trusted_memory)
+    {
+        std::pmr::memory_resource* parent = get_parent_allocator();
+        parent->deallocate(_trusted_memory, read_space_size(_trusted_memory));
+        _trusted_memory = nullptr;
+    }
 }
 
 allocator_boundary_tags::allocator_boundary_tags(
     allocator_boundary_tags &&other) noexcept
+    : _trusted_memory(other._trusted_memory)
 {
-    throw not_implemented("allocator_boundary_tags::allocator_boundary_tags(allocator_boundary_tags &&) noexcept", "your code should be here...");
+    other._trusted_memory = nullptr;
 }
 
 allocator_boundary_tags &allocator_boundary_tags::operator=(
     allocator_boundary_tags &&other) noexcept
 {
-    throw not_implemented("allocator_boundary_tags &allocator_boundary_tags::operator=(allocator_boundary_tags &&) noexcept", "your code should be here...");
+    if (this != &other)
+    {
+        // Освобождаем текущий ресурс
+        if (_trusted_memory)
+        {
+            std::pmr::memory_resource* parent = get_parent_allocator();
+            parent->deallocate(_trusted_memory, read_space_size(_trusted_memory));
+        }
+        _trusted_memory = other._trusted_memory;
+        other._trusted_memory = nullptr;
+    }
+    return *this;
 }
-
 
 /** If parent_allocator* == nullptr you should use std::pmr::get_default_resource()
  */
