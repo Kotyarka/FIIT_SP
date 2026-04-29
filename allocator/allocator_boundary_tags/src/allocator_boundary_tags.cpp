@@ -60,7 +60,9 @@ void allocator_boundary_tags::do_deallocate_sm(
 inline void allocator_boundary_tags::set_fit_mode(
     allocator_with_fit_mode::fit_mode mode)
 {
-    throw not_implemented("inline void allocator_boundary_tags::set_fit_mode(allocator_with_fit_mode::fit_mode)", "your code should be here...");
+    auto *ptr = reinterpret_cast<char *>(_trusted_memory) +
+                sizeof(std::pmr::memory_resource *);
+    *reinterpret_cast<fit_mode *>(ptr) = mode;
 }
 
 
@@ -104,7 +106,7 @@ allocator_boundary_tags &allocator_boundary_tags::operator=(const allocator_boun
 
 bool allocator_boundary_tags::do_is_equal(const std::pmr::memory_resource &other) const noexcept
 {
-    throw not_implemented("bool allocator_boundary_tags::do_is_equal(const std::pmr::memory_resource &other) const noexcept", "your code should be here...");
+    return this == &other;
 }
 
 bool allocator_boundary_tags::boundary_iterator::operator==(
@@ -121,24 +123,43 @@ bool allocator_boundary_tags::boundary_iterator::operator!=(
 
 allocator_boundary_tags::boundary_iterator &allocator_boundary_tags::boundary_iterator::operator++() & noexcept
 {
-    throw not_implemented("allocator_boundary_tags::boundary_iterator &allocator_boundary_tags::boundary_iterator::operator++() & noexcept", "your code should be here...");
+    if (_occupied_ptr != nullptr)
+    {
+        _occupied_ptr = read_block_forward(_occupied_ptr);
+        if (_occupied_ptr != nullptr)
+            _occupied = (read_block_parent(_occupied_ptr) != nullptr);
+        else
+            _occupied = false; // достигнут конец
+    }
+    return *this;
 }
+
 
 allocator_boundary_tags::boundary_iterator &allocator_boundary_tags::boundary_iterator::operator--() & noexcept
 {
-    throw not_implemented("allocator_boundary_tags::boundary_iterator &allocator_boundary_tags::boundary_iterator::operator--() & noexcept", "your code should be here...");
+    if (_occupied_ptr != nullptr)
+    {
+        _occupied_ptr = read_block_back(_occupied_ptr);
+        if (_occupied_ptr != nullptr)
+            _occupied = (read_block_parent(_occupied_ptr) != nullptr);
+        else
+            _occupied = false;
+    }
+    return *this;
 }
-
 allocator_boundary_tags::boundary_iterator allocator_boundary_tags::boundary_iterator::operator++(int n)
 {
-    throw not_implemented("allocator_boundary_tags::boundary_iterator allocator_boundary_tags::boundary_iterator::operator++(int n)", "your code should be here...");
+    boundary_iterator tmp = *this;
+    ++(*this);
+    return tmp;
 }
 
 allocator_boundary_tags::boundary_iterator allocator_boundary_tags::boundary_iterator::operator--(int n)
 {
-    throw not_implemented("allocator_boundary_tags::boundary_iterator allocator_boundary_tags::boundary_iterator::operator--(int n)", "your code should be here...");
+    boundary_iterator tmp = *this;
+    --(*this);
+    return tmp;
 }
-
 size_t allocator_boundary_tags::boundary_iterator::size() const noexcept
 {
     return read_block_size(_occupied_ptr);
@@ -214,4 +235,11 @@ size_t allocator_boundary_tags::get_space_size() const noexcept {
 
 void* allocator_boundary_tags::get_first_free() const noexcept {
     return read_first_free(_trusted_memory);
+}
+
+void allocator_boundary_tags::set_first_free(void *ptr) noexcept
+{
+    *reinterpret_cast<void**>(reinterpret_cast<std::byte*>(_trusted_memory) +
+                              sizeof(std::pmr::memory_resource*) + sizeof(fit_mode) +
+                              sizeof(size_t) + sizeof(std::mutex)) = ptr;
 }
