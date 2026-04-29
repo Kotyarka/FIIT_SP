@@ -55,6 +55,20 @@ private:
 
     bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override;
 
+        std::pmr::memory_resource *get_parent_allocator() const noexcept;
+    fit_mode get_fitmode() const noexcept;
+    size_t get_space_size() const noexcept;
+    std::mutex& get_mutex() const noexcept;
+    void *get_first_free() const noexcept;
+    void set_first_free(void *ptr) noexcept;
+
+    static size_t read_space_size(void *trusted) noexcept;
+    static void *read_first_free(void*trusted) noexcept;
+    static void *read_block_next(void *block) noexcept;
+    static size_t read_block_size(void *block) noexcept;
+    static void* read_block_back(void *block) noexcept;
+    static void* read_block_forward(void *block) noexcept;
+    static void* read_block_parent(void *block) noexcept;
 public:
     
     inline void set_fit_mode(
