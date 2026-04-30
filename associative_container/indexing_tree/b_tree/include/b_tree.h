@@ -57,8 +57,8 @@ private:
     size_t find_key_position(btree_node* node, const tkey& key) const;
     bool remove_key(const tkey& key);
     bool remove_from_node(btree_node* node, const tkey& key);
-    std::optional<std::pair<tree_data_type, btree_node*>> insert_impl(btree_node* node, const tree_data_type& data);
-    std::optional<std::pair<tree_data_type, btree_node*>> insert_impl(btree_node* node, tree_data_type&& data);
+    std::optional<std::pair<tree_data_type, btree_node*>> split_insert(btree_node* node, const tree_data_type& data);
+    std::optional<std::pair<tree_data_type, btree_node*>> split_insert(btree_node* node, tree_data_type&& data);
 public:
 
     // region constructors declaration
@@ -434,9 +434,9 @@ B_tree<tkey, tvalue, compare, t>::B_tree(
         pp_allocator<value_type> alloc)
     : compare(cmp), _allocator(alloc), _root(nullptr), _size(0)
 {
-        for (const auto& item : data) {
-            insert(item);
-        }
+    for (const auto& item : data) {
+        insert(item);
+    }
 }
 
 // endregion constructors implementation
@@ -453,10 +453,10 @@ template<typename tkey, typename tvalue, comparator<tkey> compare, std::size_t t
 B_tree<tkey, tvalue, compare, t>::B_tree(const B_tree& other)
     : compare(other), _allocator(other._allocator), _root(nullptr), _size(0)
 {
-        if (other._root) {
-            _root = copy_node(other._root, nullptr);
-            _size = other._size;
-        }
+    if (other._root) {
+        _root = copy_node(other._root, nullptr);
+        _size = other._size;
+    }
 }
 
 template<typename tkey, typename tvalue, comparator<tkey> compare, std::size_t t>
@@ -485,16 +485,16 @@ template<typename tkey, typename tvalue, comparator<tkey> compare, std::size_t t
 B_tree<tkey, tvalue, compare, t>& 
 B_tree<tkey, tvalue, compare, t>::operator=(B_tree&& other) noexcept
 {
-        if (this != &other) {
-            clear();
-            compare::operator=(std::move(other));
-            _allocator = std::move(other._allocator);
-            _root = other._root;
-            _size = other._size;
-            other._root = nullptr;
-            other._size = 0;
-        }
-        return *this;
+    if (this != &other) {
+        clear();
+        compare::operator=(std::move(other));
+        _allocator = std::move(other._allocator);
+        _root = other._root;
+        _size = other._size;
+        other._root = nullptr;
+        other._size = 0;
+    }
+    return *this;
 }
 
 // endregion five implementation
@@ -1724,7 +1724,7 @@ B_tree<tkey, tvalue, compare, t>::insert(const tree_data_type& data)
             ++_size;
             return {begin(), true};
         }
-        auto split_res = insert_impl(_root, data);
+        auto split_res = split_insert(_root, data);
         if (split_res) {
             auto& [up_key, right_node] = *split_res;
             btree_node* new_root = create_node();
@@ -1750,7 +1750,7 @@ B_tree<tkey, tvalue, compare, t>::insert(tree_data_type&& data)
         ++_size;
         return {begin(), true};
     }
-    auto split_res = insert_impl(_root, std::move(data));
+    auto split_res = split_insert(_root, std::move(data));
     if (split_res) {
         auto& [up_key, right_node] = *split_res;
         btree_node* new_root = create_node();
@@ -2004,7 +2004,7 @@ bool B_tree<tkey, tvalue, compare, t>::remove_from_node(btree_node* node, const 
 
     template<typename tkey, typename tvalue, comparator<tkey> compare, std::size_t t>
 std::optional<std::pair<typename B_tree<tkey, tvalue, compare, t>::tree_data_type, typename B_tree<tkey, tvalue, compare, t>::btree_node*>>
-B_tree<tkey, tvalue, compare, t>::insert_impl(btree_node* node, tree_data_type&& data)
+B_tree<tkey, tvalue, compare, t>::split_insert(btree_node* node, tree_data_type&& data)
 {
     if (node->_pointers.empty()) {
         size_t pos = find_key_position(node, data.first);
@@ -2024,7 +2024,7 @@ B_tree<tkey, tvalue, compare, t>::insert_impl(btree_node* node, tree_data_type&&
     } else {
         size_t pos = find_key_position(node, data.first);
         btree_node* child = node->_pointers[pos];
-        auto split_res = insert_impl(child, std::move(data));
+        auto split_res = split_insert(child, std::move(data));
         if (split_res) {
             auto& [up_key, right_node] = *split_res;
             node->_keys.insert(node->_keys.begin() + pos, std::move(up_key));
@@ -2050,7 +2050,7 @@ B_tree<tkey, tvalue, compare, t>::insert_impl(btree_node* node, tree_data_type&&
 
 template<typename tkey, typename tvalue, comparator<tkey> compare, std::size_t t>
 std::optional<std::pair<typename B_tree<tkey, tvalue, compare, t>::tree_data_type, typename B_tree<tkey, tvalue, compare, t>::btree_node*>>
-B_tree<tkey, tvalue, compare, t>::insert_impl(btree_node* node, const tree_data_type& data)
+B_tree<tkey, tvalue, compare, t>::split_insert(btree_node* node, const tree_data_type& data)
 {
     if (node->_pointers.empty()) {
         size_t pos = find_key_position(node, data.first);
@@ -2071,7 +2071,7 @@ B_tree<tkey, tvalue, compare, t>::insert_impl(btree_node* node, const tree_data_
     } else {
         size_t pos = find_key_position(node, data.first);
         btree_node* child = node->_pointers[pos];
-        auto split_res = insert_impl(child, data);
+        auto split_res = split_insert(child, data);
         if (split_res) {
             auto& [up_key, right_node] = *split_res;
             node->_keys.insert(node->_keys.begin() + pos, std::move(up_key));
