@@ -63,7 +63,7 @@ private:
     void set_first_free(void *ptr) noexcept;
 
     static size_t read_space_size(void *trusted) noexcept;
-    static void *read_first_free(void*trusted) noexcept;
+    static void *read_first_alloc(void*trusted) noexcept;
     static void *read_block_next(void *block) noexcept;
     static size_t read_block_size(void *block) noexcept;
     static void* read_block_back(void *block) noexcept;
