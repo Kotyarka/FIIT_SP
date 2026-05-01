@@ -6,7 +6,7 @@ allocator_boundary_tags::~allocator_boundary_tags()
     if (_trusted_memory)
     {
         std::pmr::memory_resource* parent = get_parent_allocator();
-        parent->deallocate(_trusted_memory, read_space_size(_trusted_memory));
+        parent->deallocate(_trusted_memory, read_space_size(_trusted_memory) + allocator_metadata_size);
         _trusted_memory = nullptr;
     }
 }
@@ -42,21 +42,16 @@ allocator_boundary_tags::allocator_boundary_tags(
         std::pmr::memory_resource *parent_allocator,
         allocator_with_fit_mode::fit_mode allocate_fit_mode)
 {
-    throw not_implemented("allocator_boundary_tags::allocator_boundary_tags(size_t,std::pmr::memory_resource *,logger *,allocator_with_fit_mode::fit_mode)", "your code should be here...");
+
+
 }
 
-[[nodiscard]] void *allocator_boundary_tags::do_allocate_sm(
-    size_t size)
-{
-    throw not_implemented("[[nodiscard]] void *allocator_boundary_tags::do_allocate_sm(size_t)", "your code should be here...");
-}
+[[nodiscard]] void *allocator_boundary_tags::do_allocate_sm(size_t size) {
 
-void allocator_boundary_tags::do_deallocate_sm(
-    void *at)
-{
-    throw not_implemented("void allocator_boundary_tags::do_deallocate_sm(void *)", "your code should be here...");
 }
+void allocator_boundary_tags::do_deallocate_sm(void *at) {
 
+}
 inline void allocator_boundary_tags::set_fit_mode(
     allocator_with_fit_mode::fit_mode mode)
 {
@@ -181,7 +176,7 @@ allocator_boundary_tags::boundary_iterator::boundary_iterator()
     : _occupied_ptr(nullptr), _occupied(false), _trusted_memory(nullptr) {}
 
 allocator_boundary_tags::boundary_iterator::boundary_iterator(void *trusted) {
-    void *first = read_first_free(_trusted_memory);
+    void *first = read_first_alloc(_trusted_memory);
     void *pool_start =
         reinterpret_cast<std::byte *>(trusted) + allocator_metadata_size;
 
@@ -209,20 +204,20 @@ std::mutex& allocator_boundary_tags::get_mutex() const noexcept {
     return *reinterpret_cast<std::mutex*>(reinterpret_cast<char*>(_trusted_memory) + sizeof(std::pmr::memory_resource*) + sizeof(fit_mode) + sizeof(size_t));
 }
 
-void* allocator_boundary_tags::read_first_free(void *trusted) noexcept {
+void* allocator_boundary_tags::read_first_alloc(void *trusted) noexcept {
     return *reinterpret_cast<void**>(reinterpret_cast<char*>(trusted) + sizeof(std::pmr::memory_resource*) + sizeof(fit_mode) + sizeof(size_t) + sizeof(std::mutex));
 }
 
 void* allocator_boundary_tags::read_block_back(void *block) noexcept {
-    return *reinterpret_cast<void**>(block);
-}
-
-void* allocator_boundary_tags::read_block_forward(void *block) noexcept {
     return *reinterpret_cast<void**>(reinterpret_cast<char *>(block) + sizeof(void*));
 }
 
+void* allocator_boundary_tags::read_block_forward(void *block) noexcept {
+    return *reinterpret_cast<void**>(reinterpret_cast<char *>(block) + sizeof(void*) + sizeof(void*));
+}
+
 size_t allocator_boundary_tags::read_block_size(void *block) noexcept {
-    return *reinterpret_cast<size_t *>(reinterpret_cast<char *>(block) + sizeof(void*) + sizeof(void*));
+    return *reinterpret_cast<size_t *>(reinterpret_cast<char *>(block));
 }
 
 void* allocator_boundary_tags::read_block_parent(void *block) noexcept {
@@ -234,7 +229,7 @@ size_t allocator_boundary_tags::get_space_size() const noexcept {
 }
 
 void* allocator_boundary_tags::get_first_free() const noexcept {
-    return read_first_free(_trusted_memory);
+    return read_first_alloc(_trusted_memory);
 }
 
 void allocator_boundary_tags::set_first_free(void *ptr) noexcept
