@@ -86,46 +86,6 @@ void *allocator_boundary_tags::do_allocate_sm(size_t size)
     void* selected_next = nullptr;
     size_t selected_gap = 0;
 
-    auto process_gap = [&](char* gap_start, char* gap_end, void* prev, void* next)
-    {
-        size_t gap = gap_end - gap_start;
-        if (gap < needed)
-            return;
-
-        switch (get_fitmode())
-        {
-            case fit_mode::first_fit:
-                if (!selected)
-                {
-                    selected = gap_start;
-                    selected_prev = prev;
-                    selected_next = next;
-                    selected_gap = gap;
-                }
-                break;
-
-            case fit_mode::the_best_fit:
-                if (!selected || gap < selected_gap)
-                {
-                    selected = gap_start;
-                    selected_prev = prev;
-                    selected_next = next;
-                    selected_gap = gap;
-                }
-                break;
-
-            case fit_mode::the_worst_fit:
-                if (!selected || gap > selected_gap)
-                {
-                    selected = gap_start;
-                    selected_prev = prev;
-                    selected_next = next;
-                    selected_gap = gap;
-                }
-                break;
-        }
-    };
-
     if (!get_first_free())
     {
         if (get_space_size() < needed)
@@ -141,8 +101,41 @@ void *allocator_boundary_tags::do_allocate_sm(size_t size)
         for (auto it = begin(); it != end(); ++it)
         {
             char* block = reinterpret_cast<char*>(it.get_ptr());
-
-            process_gap(current, block, prev, block);
+            
+            size_t gap = block - current;
+            if (gap >= needed)
+            {
+                switch (get_fitmode())
+                {
+                    case fit_mode::first_fit:
+                        if (!selected)
+                        {
+                            selected = current;
+                            selected_prev = prev;
+                            selected_next = block;
+                            selected_gap = gap;
+                        }
+                        break;
+                    case fit_mode::the_best_fit:
+                        if (!selected || gap < selected_gap)
+                        {
+                            selected = current;
+                            selected_prev = prev;
+                            selected_next = block;
+                            selected_gap = gap;
+                        }
+                        break;
+                    case fit_mode::the_worst_fit:
+                        if (!selected || gap > selected_gap)
+                        {
+                            selected = current;
+                            selected_prev = prev;
+                            selected_next = block;
+                            selected_gap = gap;
+                        }
+                        break;
+                }
+            }
 
             if (get_fitmode() == fit_mode::first_fit && selected)
                 break;
@@ -152,7 +145,42 @@ void *allocator_boundary_tags::do_allocate_sm(size_t size)
         }
 
         if (!(get_fitmode() == fit_mode::first_fit && selected))
-            process_gap(current, pool_end, prev, nullptr);
+        {
+            size_t gap = pool_end - current;
+            if (gap >= needed)
+            {
+                switch (get_fitmode())
+                {
+                    case fit_mode::first_fit:
+                        if (!selected)
+                        {
+                            selected = current;
+                            selected_prev = prev;
+                            selected_next = nullptr;
+                            selected_gap = gap;
+                        }
+                        break;
+                    case fit_mode::the_best_fit:
+                        if (!selected || gap < selected_gap)
+                        {
+                            selected = current;
+                            selected_prev = prev;
+                            selected_next = nullptr;
+                            selected_gap = gap;
+                        }
+                        break;
+                    case fit_mode::the_worst_fit:
+                        if (!selected || gap > selected_gap)
+                        {
+                            selected = current;
+                            selected_prev = prev;
+                            selected_next = nullptr;
+                            selected_gap = gap;
+                        }
+                        break;
+                }
+            }
+        }
     }
 
     if (!selected)
