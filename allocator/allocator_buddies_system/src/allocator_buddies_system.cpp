@@ -206,7 +206,6 @@ allocator_buddies_system::buddy_iterator allocator_buddies_system::buddy_iterato
 
 size_t allocator_buddies_system::buddy_iterator::size() const noexcept
 {
-    // возвращает реальный размер, как 2^k
     auto* common_metadata_block = static_cast<common_block_metadata*>(_block);
     return (1 << common_metadata_block->size);
 }
@@ -237,7 +236,6 @@ allocator_buddies_system::buddy_iterator::buddy_iterator(void *start)
 }
 
 void *allocator_buddies_system::allocate_first_fit(size_t size) {
-    // возвращает указатель на метаданные нового занятого блока
 
     size_t need_size = size + occupied_block_metadata_size;
     unsigned char need_k = __detail::nearest_greater_k_of_2(need_size);
@@ -262,7 +260,6 @@ void *allocator_buddies_system::allocate_first_fit(size_t size) {
 }
 
 void *allocator_buddies_system::allocate_best_fit(size_t size) {
-    // возвращает указатель на метеданные нового занятого блока
 
     size_t need_size = size + occupied_block_metadata_size;
     unsigned char need_k = __detail::nearest_greater_k_of_2(need_size);
@@ -295,7 +292,6 @@ void *allocator_buddies_system::allocate_best_fit(size_t size) {
 }
 
 void *allocator_buddies_system::allocate_worst_fit(size_t size) {
-    // возвращает указатель на метеданные нового занятого блока
 
     size_t need_size = size + occupied_block_metadata_size;
     unsigned char need_k = __detail::nearest_greater_k_of_2(need_size);
@@ -331,12 +327,9 @@ void *allocator_buddies_system::_split_free_block(void* ptr, unsigned int k) {
 
     if (metadata_block->size == k) return metadata_block;
 
-    // иначе нужно разделить на два блока, меньшего размера
-    // чтобы найти своего двойника -> ptr xor 2^k
 
     void* ptr_to_start_blocks = static_cast<char*>(_trusted_memory) + allocator_metadata_size;
-    size_t offset = static_cast<char*>(ptr) - static_cast<char*>(ptr_to_start_blocks); /* смещение текущего блока
-                                                                                        * относительно начала всех блоков */
+    size_t offset = static_cast<char*>(ptr) - static_cast<char*>(ptr_to_start_blocks); 
 
     --metadata_block->size;
 
@@ -351,14 +344,12 @@ void *allocator_buddies_system::_split_free_block(void* ptr, unsigned int k) {
 }
 
 void allocator_buddies_system::_join_free_blocks(void *ptr) {
-    // рекурсивно объединяет двойники
 
     auto* metadata_block = static_cast<common_block_metadata*>(ptr);
-    if (metadata_block->occupied == true) return; // если текущий блок занят, то соседний нет смысла рассматривать
+    if (metadata_block->occupied == true) return; 
 
     void* ptr_to_start_blocks = static_cast<char*>(_trusted_memory) + allocator_metadata_size;
-    size_t offset = static_cast<char*>(ptr) - static_cast<char*>(ptr_to_start_blocks); /* смещение текущего блока
-                                                                                        * относительно начала всех блоков */
+    size_t offset = static_cast<char*>(ptr) - static_cast<char*>(ptr_to_start_blocks); 
 
     size_t offset_buddy_block = offset ^ (1 << metadata_block->size);
 
@@ -368,10 +359,8 @@ void allocator_buddies_system::_join_free_blocks(void *ptr) {
     void* ptr_to_metadata_buddy_block = static_cast<char*>(ptr_to_start_blocks) + offset_buddy_block;
     auto* metadata_buddy_block = static_cast<common_block_metadata*>(ptr_to_metadata_buddy_block);
 
-    if (metadata_buddy_block->occupied == true || metadata_buddy_block->size != metadata_block->size) return; /* соседний блок занят или
-                                                                                                               * у соседнего блока не тот размер */
+    if (metadata_buddy_block->occupied == true || metadata_buddy_block->size != metadata_block->size) return; 
 
-    // нужно определить какой из них левее и туда записать новые данные и от него запустить алгос
     auto* metadata_left_block = metadata_block < metadata_buddy_block ? metadata_block : metadata_block;
     metadata_left_block->occupied = false;
     metadata_left_block->size = ++metadata_block->size;
