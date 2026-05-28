@@ -6,26 +6,21 @@
 #include <allocator_with_fit_mode.h>
 #include <mutex>
 #include <cmath>
+#include <vector>
 
 namespace __detail
 {
-    constexpr size_t nearest_greater_k_of_2(size_t size) noexcept
+    constexpr size_t nearest_greater_k_of_2(size_t size) noexcept 
     {
-        int ones_counter = 0, index = -1;
-
-        constexpr const size_t o = 1;
-
-        for (int i = sizeof(size_t) * 8 - 1; i >= 0; --i)
-        {
-            if (size & (o << i))
-            {
-                if (ones_counter == 0)
-                    index = i;
-                ++ones_counter;
-            }
+        if (size <= 1) return 0; 
+        
+        size_t power = 1; 
+        int k = 0;
+        while (power < size) {
+            power <<= 1; 
+            k++;
         }
-
-        return ones_counter <= 1 ? index : index + 1;
+        return k;
     }
 }
 
@@ -34,43 +29,29 @@ class allocator_buddies_system final:
     public allocator_test_utils,
     public allocator_with_fit_mode
 {
+    private:
 
-private:
 
-    class allocator_metadata {
-    public:
-        std::pmr::memory_resource *parent_allocator = std::pmr::get_default_resource();
-        allocator_with_fit_mode::fit_mode fit_mode = fit_mode::first_fit;
-        unsigned char k = 0;
-        std::mutex mutex;
-    };
-
-    struct common_block_metadata
+    struct block_metadata
     {
         bool occupied : 1;
-        unsigned char size : 7;
-    };
-
-    class occupied_block_metadata {
-    public:
-        common_block_metadata metadata;
-        void* trusted_memory;
+        unsigned char size : 7; //получается k от 0 до 127, то есть максимальный размер блока 2^7 - 1
     };
 
     void *_trusted_memory;
 
-    static constexpr const size_t allocator_metadata_size = sizeof(allocator_metadata);
+    static constexpr const size_t allocator_metadata_size = sizeof(allocator_dbg_helper*) + sizeof(fit_mode) + sizeof(unsigned char) + sizeof(std::mutex);
 
-    static constexpr const size_t occupied_block_metadata_size = sizeof(occupied_block_metadata);
+    static constexpr const size_t occupied_block_metadata_size = sizeof(block_metadata) + sizeof(void*);
 
-    static constexpr const size_t free_block_metadata_size = sizeof(common_block_metadata);
+    static constexpr const size_t free_block_metadata_size = sizeof(block_metadata);
 
-    static constexpr const size_t min_k = __detail::nearest_greater_k_of_2(occupied_block_metadata_size);
+    static constexpr const size_t min_k = __detail::nearest_greater_k_of_2(occupied_block_metadata_size); //то есть в этой системе блоки не могут быть меньше 2^k_min байт 
 
 public:
 
     explicit allocator_buddies_system(
-            size_t space_size_power_of_two,
+            size_t space_size_power_of_two, //размер данных в виде 2^k байт
             std::pmr::memory_resource *parent_allocator = nullptr,
             allocator_with_fit_mode::fit_mode allocate_fit_mode = allocator_with_fit_mode::fit_mode::first_fit);
 
@@ -88,6 +69,8 @@ public:
 
     ~allocator_buddies_system() override;
 
+    void swap(allocator_buddies_system& other) noexcept;
+
 private:
     
     [[nodiscard]] void *do_allocate_sm(
@@ -104,20 +87,11 @@ private:
 
     std::vector<allocator_test_utils::block_info> get_blocks_info() const noexcept override;
 
-    void* allocate_first_fit(size_t size);
-    void* allocate_best_fit(size_t size);
-    void* allocate_worst_fit(size_t size);
-
-    void* _split_free_block(void *ptr, unsigned int k);
-    void _join_free_blocks(void* ptr);
-
 private:
 
     std::vector<allocator_test_utils::block_info> get_blocks_info_inner() const override;
 
-    /** TODO: Highly recommended for helper functions to return references */
-
-    class buddy_iterator
+    class buddy_iterator //итерируется по всем блокам
     {
         void* _block;
 
@@ -146,6 +120,9 @@ private:
         buddy_iterator();
 
         buddy_iterator(void* start);
+
+        void* get_block() const { return _block; }
+
     };
 
     friend class buddy_iterator;
